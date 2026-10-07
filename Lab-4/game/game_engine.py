@@ -19,18 +19,25 @@ class GameEngine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
+        self.rows, self.cols = 5, 8
 
-        self.paddle = Paddle(width // 2 - 50, height - 30, 100, 14)
+        self.font = pygame.font.SysFont("Arial", 28)
+        self.big_font = pygame.font.SysFont("Arial", 56, bold=True)
+        self.small_font = pygame.font.SysFont("Arial", 22)
 
-        self.ball = Ball(width // 2, height - 50, radius=8)
+        self.reset()
+
+    def reset(self):
+        """Start a fresh round: new paddle, ball, bricks, lives and score."""
+        self.paddle = Paddle(self.width // 2 - 50, self.height - 30, 100, 14)
+
+        self.ball = Ball(self.width // 2, self.height - 50, radius=8)
         self.ball.vx, self.ball.vy = 4, -4
 
-        self.rows, self.cols = 5, 8
         self.bricks = self._build_bricks(self.rows, self.cols)
 
         self.lives = 3
         self.score = 0
-        self.font = pygame.font.SysFont("Arial", 28)
         self.game_over = False
         self.result = None  # "win" or "lose"
 
@@ -47,9 +54,14 @@ class GameEngine:
         return bricks
 
     def handle_event(self, event):
-        # This game only needs continuously-held-key input for the
-        # paddle, handled in handle_input each frame.
-        pass
+        # Paddle movement is held-key input, handled in handle_input.
+        # Here we only handle key presses on the end screen.
+        if not self.game_over or event.type != pygame.KEYDOWN:
+            return
+        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.reset()
+        elif event.key == pygame.K_ESCAPE:
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
 
     def handle_input(self):
         if self.game_over:
@@ -163,10 +175,24 @@ class GameEngine:
         lives_text = self.font.render(f"Lives: {self.lives}", True, WHITE)
         screen.blit(lives_text, (self.width - 130, 10))
 
-        if self.game_over and not getattr(self, "_game_over_logged", False):
-            # NOTE: no proper end screen yet - see Task 2 in the README.
-            if self.result == "win":
-                print("You win! Final score:", self.score)
-            else:
-                print("Game over! Final score:", self.score)
-            self._game_over_logged = True
+        if self.game_over:
+            self._render_end_screen(screen)
+
+    def _render_end_screen(self, screen):
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        if self.result == "win":
+            title, color = "YOU WIN!", (90, 220, 120)
+        else:
+            title, color = "GAME OVER", (230, 80, 80)
+
+        lines = [
+            (self.big_font, title, color, -70),
+            (self.font, f"Final score: {self.score}", WHITE, 0),
+            (self.small_font, "Press ENTER to play again or ESC to quit", (190, 190, 200), 60),
+        ]
+        for font, text, col, dy in lines:
+            surf = font.render(text, True, col)
+            screen.blit(surf, surf.get_rect(center=(self.width // 2, self.height // 2 + dy)))
