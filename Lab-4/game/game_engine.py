@@ -66,27 +66,35 @@ class GameEngine:
 
         self.ball.move()
 
-        if self.ball.x - self.ball.radius <= 0 or self.ball.x + self.ball.radius >= self.width:
-            self.ball.vx *= -1
+        # Walls: clamp the ball inside and force the velocity away from
+        # the wall, so it can never get stuck flipping back and forth.
+        if self.ball.x - self.ball.radius <= 0:
+            self.ball.x = self.ball.radius
+            self.ball.vx = abs(self.ball.vx)
+        elif self.ball.x + self.ball.radius >= self.width:
+            self.ball.x = self.width - self.ball.radius
+            self.ball.vx = -abs(self.ball.vx)
         if self.ball.y - self.ball.radius <= 0:
-            self.ball.vy *= -1
+            self.ball.y = self.ball.radius
+            self.ball.vy = abs(self.ball.vy)
 
-        if self.ball.rect().colliderect(self.paddle.rect()):
-            # NOTE: always flips the ball's vertical velocity on a
-            # paddle collision, regardless of which side of the paddle
-            # was actually hit. See Task 1 in the README.
-            self.ball.vy *= -1
+        paddle_rect = self.paddle.rect()
+        if self.ball.rect().colliderect(paddle_rect):
+            side = self._resolve_collision(paddle_rect)
+            if side == "top":
+                # Steer the ball based on where it hit the paddle:
+                # edges send it out at a sharper angle than the centre.
+                speed = (self.ball.vx ** 2 + self.ball.vy ** 2) ** 0.5
+                offset = (self.ball.x - paddle_rect.centerx) / (paddle_rect.width / 2)
+                offset = max(-0.75, min(0.75, offset))
+                self.ball.vx = speed * offset
+                self.ball.vy = -(speed ** 2 - self.ball.vx ** 2) ** 0.5
 
         for brick in self.bricks:
             if brick.alive and self.ball.rect().colliderect(brick.rect()):
                 brick.alive = False
                 self.score += 1
-                # NOTE: same unconditional vertical-velocity flip as
-                # the paddle collision above - a brick hit from the
-                # left or right should redirect the ball sideways
-                # (flip vx), but this always flips vy instead. See
-                # Task 1 in the README.
-                self.ball.vy *= -1
+                self._resolve_collision(brick.rect())
                 break
 
         if self.ball.y - self.ball.radius > self.height:
@@ -100,6 +108,39 @@ class GameEngine:
         if all(not b.alive for b in self.bricks):
             self.game_over = True
             self.result = "win"
+
+    def _resolve_collision(self, rect):
+        """Bounce the ball off `rect` based on which side it hit.
+
+        The side is the axis with the smallest overlap between the
+        ball and the rect. The ball is pushed back out along that axis
+        and its velocity on that axis is pointed away from the rect.
+        Returns "top", "bottom", "left" or "right".
+        """
+        ball = self.ball.rect()
+        overlap_left = ball.right - rect.left
+        overlap_right = rect.right - ball.left
+        overlap_top = ball.bottom - rect.top
+        overlap_bottom = rect.bottom - ball.top
+        overlap_x = min(overlap_left, overlap_right)
+        overlap_y = min(overlap_top, overlap_bottom)
+
+        if overlap_x < overlap_y:
+            if overlap_left < overlap_right:
+                self.ball.x -= overlap_left
+                self.ball.vx = -abs(self.ball.vx)
+                return "left"
+            self.ball.x += overlap_right
+            self.ball.vx = abs(self.ball.vx)
+            return "right"
+
+        if overlap_top < overlap_bottom:
+            self.ball.y -= overlap_top
+            self.ball.vy = -abs(self.ball.vy)
+            return "top"
+        self.ball.y += overlap_bottom
+        self.ball.vy = abs(self.ball.vy)
+        return "bottom"
 
     def _reset_ball(self):
         self.ball.x, self.ball.y = self.width // 2, self.height - 50
