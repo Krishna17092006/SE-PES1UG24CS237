@@ -2,6 +2,7 @@ import pygame
 from .paddle import Paddle
 from .ball import Ball
 from .brick import Brick
+from .sounds import Sounds
 
 # Game Engine
 
@@ -32,6 +33,7 @@ class GameEngine:
         self.font = pygame.font.SysFont("Arial", 28)
         self.big_font = pygame.font.SysFont("Arial", 56, bold=True)
         self.small_font = pygame.font.SysFont("Arial", 22)
+        self.sounds = Sounds()
 
         self.difficulty = "Medium"
         self.menu_index = DIFFICULTY_NAMES.index(self.difficulty)
@@ -104,16 +106,20 @@ class GameEngine:
         if self.ball.x - self.ball.radius <= 0:
             self.ball.x = self.ball.radius
             self.ball.vx = abs(self.ball.vx)
+            self.sounds.play("wall")
         elif self.ball.x + self.ball.radius >= self.width:
             self.ball.x = self.width - self.ball.radius
             self.ball.vx = -abs(self.ball.vx)
+            self.sounds.play("wall")
         if self.ball.y - self.ball.radius <= 0:
             self.ball.y = self.ball.radius
             self.ball.vy = abs(self.ball.vy)
+            self.sounds.play("wall")
 
         paddle_rect = self.paddle.rect()
         if self.ball.rect().colliderect(paddle_rect):
             side = self._resolve_collision(paddle_rect)
+            self.sounds.play("paddle")
             if side == "top":
                 # Steer the ball based on where it hit the paddle:
                 # edges send it out at a sharper angle than the centre.
@@ -128,6 +134,7 @@ class GameEngine:
                 brick.alive = False
                 self.score += 1
                 self._resolve_collision(brick.rect())
+                self.sounds.play("brick")
                 break
 
         if self.ball.y - self.ball.radius > self.height:
@@ -135,12 +142,15 @@ class GameEngine:
             if self.lives <= 0:
                 self.game_over = True
                 self.result = "lose"
+                self.sounds.play("game_over")
             else:
+                self.sounds.play("lose_life")
                 self._reset_ball()
 
         if all(not b.alive for b in self.bricks):
             self.game_over = True
             self.result = "win"
+            self.sounds.play("win")
 
     def _resolve_collision(self, rect):
         """Bounce the ball off `rect` based on which side it hit.
