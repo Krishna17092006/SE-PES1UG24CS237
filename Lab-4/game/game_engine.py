@@ -15,6 +15,14 @@ BRICK_COLORS = [
     (80, 140, 200),
 ]
 
+# name: (ball speed per axis, paddle width)
+DIFFICULTIES = {
+    "Easy": (3, 140),
+    "Medium": (4, 100),
+    "Hard": (6, 70),
+}
+DIFFICULTY_NAMES = list(DIFFICULTIES)
+
 class GameEngine:
     def __init__(self, width, height):
         self.width = width
@@ -25,14 +33,20 @@ class GameEngine:
         self.big_font = pygame.font.SysFont("Arial", 56, bold=True)
         self.small_font = pygame.font.SysFont("Arial", 22)
 
+        self.difficulty = "Medium"
+        self.menu_index = DIFFICULTY_NAMES.index(self.difficulty)
         self.reset()
 
-    def reset(self):
+    def reset(self, difficulty=None):
         """Start a fresh round: new paddle, ball, bricks, lives and score."""
-        self.paddle = Paddle(self.width // 2 - 50, self.height - 30, 100, 14)
+        if difficulty is not None:
+            self.difficulty = difficulty
+        self.ball_speed, paddle_w = DIFFICULTIES[self.difficulty]
+
+        self.paddle = Paddle(self.width // 2 - paddle_w // 2, self.height - 30, paddle_w, 14)
 
         self.ball = Ball(self.width // 2, self.height - 50, radius=8)
-        self.ball.vx, self.ball.vy = 4, -4
+        self.ball.vx, self.ball.vy = self.ball_speed, -self.ball_speed
 
         self.bricks = self._build_bricks(self.rows, self.cols)
 
@@ -58,9 +72,16 @@ class GameEngine:
         # Here we only handle key presses on the end screen.
         if not self.game_over or event.type != pygame.KEYDOWN:
             return
-        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-            self.reset()
-        elif event.key == pygame.K_ESCAPE:
+        if event.key in (pygame.K_UP, pygame.K_w):
+            self.menu_index = (self.menu_index - 1) % len(DIFFICULTY_NAMES)
+        elif event.key in (pygame.K_DOWN, pygame.K_s):
+            self.menu_index = (self.menu_index + 1) % len(DIFFICULTY_NAMES)
+        elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+            self.menu_index = event.key - pygame.K_1
+            self.reset(DIFFICULTY_NAMES[self.menu_index])
+        elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.reset(DIFFICULTY_NAMES[self.menu_index])
+        elif event.key in (pygame.K_ESCAPE, pygame.K_q):
             pygame.event.post(pygame.event.Event(pygame.QUIT))
 
     def handle_input(self):
@@ -156,7 +177,7 @@ class GameEngine:
 
     def _reset_ball(self):
         self.ball.x, self.ball.y = self.width // 2, self.height - 50
-        self.ball.vx, self.ball.vy = 4, -4
+        self.ball.vx, self.ball.vy = self.ball_speed, -self.ball_speed
 
     def render(self, screen):
         screen.fill(BG)
@@ -189,10 +210,18 @@ class GameEngine:
             title, color = "GAME OVER", (230, 80, 80)
 
         lines = [
-            (self.big_font, title, color, -70),
-            (self.font, f"Final score: {self.score}", WHITE, 0),
-            (self.small_font, "Press ENTER to play again or ESC to quit", (190, 190, 200), 60),
+            (self.big_font, title, color, -130),
+            (self.font, f"Final score: {self.score}", WHITE, -70),
+            (self.small_font, "Play again - choose difficulty:", (190, 190, 200), -20),
         ]
+        for i, name in enumerate(DIFFICULTY_NAMES):
+            selected = i == self.menu_index
+            text = f"{'>  ' if selected else ''}{i + 1}. {name}{'  <' if selected else ''}"
+            col = (255, 220, 90) if selected else (170, 170, 180)
+            lines.append((self.font, text, col, 20 + i * 38))
+        lines.append((self.small_font, "UP/DOWN + ENTER (or 1/2/3) to play, ESC to quit",
+                      (150, 150, 160), 150))
+
         for font, text, col, dy in lines:
             surf = font.render(text, True, col)
             screen.blit(surf, surf.get_rect(center=(self.width // 2, self.height // 2 + dy)))
