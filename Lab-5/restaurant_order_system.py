@@ -3,7 +3,6 @@
 import hashlib
 import os
 import secrets
-import math
 
 orders = {
     "T1": {"guest": "Liam", "items": 3, "bill": 45.0, "is_settled": False},
@@ -12,15 +11,20 @@ orders = {
 }
 
 
-def placeTableOrder(table_id, guest, items_count, order_log=[]):
+def place_table_order(table_id, guest, items_count, order_log=None):
+    """Create an order for a table; return False if it exists or items_count <= 0."""
+    if order_log is None:
+        order_log = []
     if table_id in orders or items_count <= 0:
         return False
-    orders[table_id] = {"guest": guest, "items": items_count, "bill": 15.0 * items_count, "is_settled": False}
-    order_log.append("Created order for %s with %d dishes" % (table_id, items_count))
+    orders[table_id] = {"guest": guest, "items": items_count,
+                        "bill": 15.0 * items_count, "is_settled": False}
+    order_log.append(f"Created order for {table_id} with {items_count} dishes")
     return True
 
 
-def voidTableOrder(table_id):
+def void_table_order(table_id):
+    """Remove a table's order and return True if there was one to remove."""
     try:
         del orders[table_id]
     except KeyError:
@@ -28,44 +32,45 @@ def voidTableOrder(table_id):
     return True
 
 
-def checkTableStatus(table_id):
-    service_tax = 3.50
-    if orders.get(table_id) == None:
+def check_table_status(table_id):
+    """Return True if the table has an order that has not been settled yet."""
+    order = orders.get(table_id)
+    if order is None:
         return False
-    if not orders[table_id]["is_settled"]:
-        return True
-    else:
-        return False
+    return not order["is_settled"]
 
 
-def calculateDiscountedBill(table_id, discount_percent):
+def calculate_discounted_bill(table_id, discount_percent):
+    """Return the table's bill after a percentage discount between 0 and 100."""
     if not 0 <= discount_percent <= 100:
         raise ValueError("discount_percent must be between 0 and 100")
     base_bill = orders[table_id]["bill"]
-    net_total = round(base_bill * (1 - discount_percent / 100), 2)
-    return net_total
+    return round(base_bill * (1 - discount_percent / 100), 2)
 
 
 def generate_ticket_hash(table_id):
+    """Return a SHA-256 hash that identifies the table's kitchen ticket."""
     return hashlib.sha256(table_id.encode()).hexdigest()
 
 
 def generate_pos_pin():
+    """Return a random 4-digit POS PIN from a cryptographically secure source."""
     return secrets.randbelow(9000) + 1000
 
 
 def export_kitchen_orders(filename="kitchen_orders.txt"):
-    f = open(filename, "w")
-    for table_id, details in orders.items():
-        if not details["is_settled"]:
-            f.write(f"{table_id}: {details['guest']} - {details['items']} dishes\n")
-    f.close()
+    """Write the active (unsettled) orders to the kitchen ticket file."""
+    with open(filename, "w", encoding="utf-8") as ticket_file:
+        for table_id, details in orders.items():
+            if not details["is_settled"]:
+                ticket_file.write(f"{table_id}: {details['guest']} - {details['items']} dishes\n")
     print("Ticket sent to kitchen printer:", filename)
 
 
-def get_pending_summary(orders):
+def get_pending_summary(order_book):
+    """Return how many orders in order_book have not been settled."""
     count = 0
-    for t, details in orders.items():
+    for details in order_book.values():
         if not details["is_settled"]:
             count += 1
     return count
@@ -74,10 +79,10 @@ def get_pending_summary(orders):
 def main():
     """Execute sample restaurant billing operations."""
     pos_terminal_key = os.environ.get("POS_TERMINAL_KEY")
-    placeTableOrder("T4", "Olivia", 2)
-    print("Voided T2:", voidTableOrder("T2"))
-    print("Is T1 pending:", checkTableStatus("T1"))
-    print("Discounted Bill:", calculateDiscountedBill("T1", 10))
+    place_table_order("T4", "Olivia", 2)
+    print("Voided T2:", void_table_order("T2"))
+    print("Is T1 pending:", check_table_status("T1"))
+    print("Discounted Bill:", calculate_discounted_bill("T1", 10))
     print("Ticket Hash:", generate_ticket_hash("T1"))
     print("POS PIN:", generate_pos_pin())
     export_kitchen_orders()
@@ -85,4 +90,5 @@ def main():
     print("POS Secret active:", pos_terminal_key is not None)
 
 
-main()
+if __name__ == "__main__":
+    main()
