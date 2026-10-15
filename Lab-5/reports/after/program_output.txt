@@ -1,0 +1,8 @@
+Voided T2: True
+Is T1 pending: True
+Discounted Bill: 40.5
+Ticket Hash: 1f93603db53bfad5c92390f735d0cbb8617b4ab8214ae91c5664a3d1e9b009c8
+POS PIN: 4332
+Ticket sent to kitchen printer: kitchen_orders.txt
+Pending tables: 3
+POS Secret active: False
