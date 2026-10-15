@@ -12,7 +12,10 @@ orders = {
 
 
 def place_table_order(table_id, guest, items_count, order_log=None):
-    """Create an order for a table; return False if it exists or items_count <= 0."""
+    """Create an order for a table.
+
+    Returns False if the table already has an order or items_count <= 0.
+    """
     if order_log is None:
         order_log = []
     if table_id in orders or items_count <= 0:
@@ -41,7 +44,7 @@ def check_table_status(table_id):
 
 
 def calculate_discounted_bill(table_id, discount_percent):
-    """Return the table's bill after a percentage discount between 0 and 100."""
+    """Return the table's bill after a percentage discount (0 to 100)."""
     if not 0 <= discount_percent <= 100:
         raise ValueError("discount_percent must be between 0 and 100")
     base_bill = orders[table_id]["bill"]
@@ -54,7 +57,7 @@ def generate_ticket_hash(table_id):
 
 
 def generate_pos_pin():
-    """Return a random 4-digit POS PIN from a cryptographically secure source."""
+    """Return a random 4-digit POS PIN from a secure random source."""
     return secrets.randbelow(9000) + 1000
 
 
@@ -63,7 +66,10 @@ def export_kitchen_orders(filename="kitchen_orders.txt"):
     with open(filename, "w", encoding="utf-8") as ticket_file:
         for table_id, details in orders.items():
             if not details["is_settled"]:
-                ticket_file.write(f"{table_id}: {details['guest']} - {details['items']} dishes\n")
+                ticket_file.write(
+                    f"{table_id}: {details['guest']} - "
+                    f"{details['items']} dishes\n"
+                )
     print("Ticket sent to kitchen printer:", filename)
 
 
